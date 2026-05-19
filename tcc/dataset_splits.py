@@ -15,6 +15,11 @@
 
 """List of subsets."""
 
+import json
+import os
+
+_DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
+
 DATASETS = {
     'pouring': {'train': 70, 'val': 14, 'test': 32},
     'baseball_pitch': {'train': 103, 'val': 63},
@@ -30,7 +35,21 @@ DATASETS = {
     'squats': {'train': 114, 'val': 115},
     'tennis_forehand': {'train': 79, 'val': 74},
     'tennis_serve': {'train': 115, 'val': 68},
+    # Counts for Forehands/Rear View are written by scripts/prepare_forehand_tfrecords.py
+    'tennis_forehand_rear': {'train': 0, 'val': 0},
+    # Two-clip alignment subset (see scripts/align_random_pair.py).
+    'tennis_forehand_rear_pair': {'train': 0, 'val': 2},
 }
+
+
+def _load_dynamic_splits():
+  splits_path = os.path.join(_DATA_DIR, 'tennis_forehand_rear_splits.json')
+  if os.path.exists(splits_path):
+    with open(splits_path, 'r') as f:
+      DATASETS['tennis_forehand_rear'] = json.load(f)
+
+
+_load_dynamic_splits()
 
 
 DATASET_TO_NUM_CLASSES = {
@@ -48,4 +67,6 @@ DATASET_TO_NUM_CLASSES = {
     'squats': 4,
     'tennis_forehand': 3,
     'tennis_serve': 4,
+    'tennis_forehand_rear': 3,
+    'tennis_forehand_rear_pair': 3,
 }

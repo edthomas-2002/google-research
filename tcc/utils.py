@@ -312,11 +312,17 @@ def get_context_steps(step):
 
 
 def get_indices(curr_idx, num_steps, seq_len):
-  steps = range(curr_idx, curr_idx + num_steps)
-  single_steps = np.concatenate([get_context_steps(step) for step in steps])
-  single_steps = np.maximum(0, single_steps)
-  single_steps = np.minimum(seq_len, single_steps)
-  return single_steps
+  """Frame indices with temporal context for embedding (sample_all sequences)."""
+  max_index = max(0, seq_len - 1)
+  end = min(curr_idx + num_steps, seq_len)
+  idxes = []
+  for step in range(curr_idx, end):
+    ctx = get_context_steps(int(step))
+    ctx = np.clip(ctx, 0, max_index)
+    idxes.append(ctx)
+  if not idxes:
+    return np.array([0], dtype=np.int32)
+  return np.concatenate(idxes).astype(np.int32)
 
 
 # TODO(debidatta): Modular and simpler function for embedding datasets
@@ -371,7 +377,8 @@ def get_embeddings_dataset(model, iterator, frames_per_batch,
           gru_layer.reset_states()
 
       data, chosen_steps, seq_len = get_data(iterator)
-      seq_len = seq_len.numpy()[0]
+      # Use the materialized frame dimension; metadata seq_len can disagree.
+      seq_len = int(data['frames'].shape[1])
       num_batches = int(math.ceil(float(seq_len)/frames_per_batch))
       for i in range(num_batches):
         if  (i + 1) * frames_per_batch > seq_len:
@@ -385,6 +392,7 @@ def get_embeddings_dataset(model, iterator, frames_per_batch,
           # Need to do this as some modalities might not exist.
           if len(v.shape) > 1 and v.shape[1] != 0:
             idxes = get_indices(curr_idx, num_steps, seq_len)
+            idxes = np.clip(idxes, 0, max(0, seq_len - 1)).astype(np.int32)
             curr_data[k] = tf.gather(v, idxes, axis=1)
           else:
             curr_data[k] = v

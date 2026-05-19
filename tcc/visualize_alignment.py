@@ -25,6 +25,7 @@ from absl import app
 from absl import flags
 from absl import logging
 
+import cv2
 from dtw import dtw
 import matplotlib
 matplotlib.use('Agg')
@@ -76,6 +77,49 @@ def unnorm(query_frame):
   return query_frame
 
 
+def frame_to_bgr_uint8(frame):
+  """Convert a preprocessed frame tensor/array to uint8 BGR for OpenCV."""
+  frame = unnorm(np.asarray(frame))
+  if frame.max() <= 1.0:
+    frame = (frame * 255.0).astype(np.uint8)
+  else:
+    frame = frame.astype(np.uint8)
+  if frame.ndim == 3 and frame.shape[-1] == 3:
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+  return frame
+
+
+def create_side_by_side_mp4(embs, frames, video_path, use_dtw, query, candidate,
+                            fps):
+  """Write side-by-side aligned comparison video with OpenCV."""
+  nns = align(embs[query], embs[candidate], use_dtw)
+  left_frames = frames[query]
+  right_frames = frames[candidate]
+  num_frames = len(embs[query])
+
+  left0 = frame_to_bgr_uint8(left_frames[0])
+  height, width = left0.shape[:2]
+  writer = cv2.VideoWriter(
+      video_path,
+      cv2.VideoWriter_fourcc(*'mp4v'),
+      float(fps),
+      (width * 2, height))
+
+  if not writer.isOpened():
+    raise RuntimeError('cv2.VideoWriter failed to open: %s' % video_path)
+
+  for i in range(num_frames):
+    logging.info('%s/%s', i, num_frames)
+    left = frame_to_bgr_uint8(left_frames[i])
+    right = frame_to_bgr_uint8(right_frames[nns[i]])
+    if right.shape[:2] != left.shape[:2]:
+      right = cv2.resize(right, (left.shape[1], left.shape[0]))
+    writer.write(np.hstack([left, right]))
+
+  writer.release()
+  logging.info('Wrote side-by-side MP4: %s', video_path)
+
+
 def align(query_feats, candidate_feats, use_dtw):
   """Align videos based on nearest neighbor or dynamic time warping."""
   if use_dtw:
@@ -94,6 +138,19 @@ def create_video(embs, frames, video_path, use_dtw, query, candidate, interval):
   """Create aligned videos."""
   # If candiidate is not None implies alignment is being calculated between
   # 2 videos only.
+  if ((candidate is not None) or (len(embs) < 4)) and video_path.lower().endswith(
+      '.mp4'):
+    fps = 1000.0 / float(interval) if interval else 20.0
+    create_side_by_side_mp4(
+        embs,
+        frames,
+        video_path,
+        use_dtw,
+        query=query,
+        candidate=candidate if candidate is not None else 1,
+        fps=fps)
+    return
+
   if (candidate is not None) or (len(embs) < 4):
     fig, ax = plt.subplots(ncols=2, figsize=(10, 10), tight_layout=True)
     nns = align(embs[query], embs[candidate], use_dtw)

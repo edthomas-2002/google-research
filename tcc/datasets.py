@@ -261,6 +261,8 @@ def sample_and_preprocess(video,
     labels = tf.gather(labels, steps)
     if add_shape:
       labels.set_shape([shape_all_steps])
+  else:
+    labels = tf.zeros([shape_all_steps], dtype=tf.int64)
 
   return {
       'frames': video,
