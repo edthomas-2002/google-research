@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Train TCC on Forehands/Rear View TFRecords.
+# Train TCC on Forehands/Rear View TFRecords (persistent disk defaults).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -16,24 +16,32 @@ for gpu in gpus:
 print('GPUs:', gpus)
 PY
 
-LOGDIR="${LOGDIR:-/tmp/tennis_forehand_rear_logs}"
-CONFIG_SRC="${TCC_FOREHAND_CONFIG:-$(dirname "$0")/../configs/tennis_forehand_rear.yml}"
-RESNET="/tmp/resnet50v2_weights_tf_dim_ordering_tf_kernels_notop.h5"
+OUTPUT_ROOT="${OUTPUT_ROOT:-/home/ec2-user/tennis/outputs}"
+LOGDIR="${LOGDIR:-$OUTPUT_ROOT/logs/tennis_forehand_rear}"
+TFRECORD_DIR="${TFRECORD_DIR:-$OUTPUT_ROOT/tfrecords/tennis_forehand_rear_tfrecords}"
+WEIGHTS_DIR="${WEIGHTS_DIR:-$OUTPUT_ROOT/weights}"
+CONFIG_SRC="${TCC_FOREHAND_CONFIG:-$(dirname "$0")/../configs/tennis_forehand_rear_persistent.yml}"
+RESNET="$WEIGHTS_DIR/resnet50v2_weights_tf_dim_ordering_tf_kernels_notop.h5"
+
+mkdir -p "$OUTPUT_ROOT" "$LOGDIR" "$WEIGHTS_DIR"
 
 if [[ ! -f "$RESNET" ]]; then
-  echo "Downloading ResNet50v2 weights to /tmp/ ..."
-  wget -q -P /tmp/ \
+  echo "Downloading ResNet50v2 weights to $WEIGHTS_DIR ..."
+  wget -q -P "$WEIGHTS_DIR" \
     https://github.com/keras-team/keras-applications/releases/download/resnet/resnet50v2_weights_tf_dim_ordering_tf_kernels_notop.h5
 fi
 
-if [[ ! -d "/tmp/tennis_forehand_rear_tfrecords" ]]; then
-  echo "TFRecords not found. Run prepare_forehand_tfrecords.py first."
+if ! compgen -G "$TFRECORD_DIR/tennis_forehand_rear_train-"'*.tfrecord' > /dev/null; then
+  echo "TFRecords not found in $TFRECORD_DIR" >&2
+  echo "Run: python tcc/scripts/prepare_forehand_tfrecords.py" >&2
   exit 1
 fi
 
 mkdir -p "$LOGDIR"
 cp "$CONFIG_SRC" "$LOGDIR/config.yml"
 echo "Installed config: $LOGDIR/config.yml"
+echo "LOGDIR=$LOGDIR"
+echo "TFRECORD_DIR=$TFRECORD_DIR"
 
 EXTRA_TRAIN_FLAGS="${EXTRA_TRAIN_FLAGS:-}"
 python -m tcc.train --alsologtostderr --logdir="$LOGDIR" $EXTRA_TRAIN_FLAGS

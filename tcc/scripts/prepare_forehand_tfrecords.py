@@ -17,7 +17,11 @@ import sys
 DATASET_NAME = 'tennis_forehand_rear'
 DEFAULT_VIDEO_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), 'Forehands', 'Rear View')
-DEFAULT_TFRECORD_DIR = '/tmp/tennis_forehand_rear_tfrecords'
+_OUTPUT_ROOT = os.environ.get(
+    'OUTPUT_ROOT',
+    os.environ.get('TCC_OUTPUT_ROOT', '/home/ec2-user/tennis/outputs'))
+DEFAULT_TFRECORD_DIR = os.path.join(
+    _OUTPUT_ROOT, 'tfrecords', 'tennis_forehand_rear_tfrecords')
 SPLITS_JSON = os.path.join(
     os.path.dirname(os.path.dirname(__file__)),
     'data',
@@ -80,7 +84,8 @@ def main():
   parser.add_argument(
       '--output_dir',
       default=DEFAULT_TFRECORD_DIR,
-      help='Where TFRecord shards are written.')
+      help='Where TFRecord shards are written (default: '
+           '%s).' % DEFAULT_TFRECORD_DIR)
   parser.add_argument(
       '--val_fraction',
       type=float,
