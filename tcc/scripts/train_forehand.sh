@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Train TCC on Forehands/Rear View TFRecords (persistent disk defaults).
+# Train TCC on Forehands/Rear View (TFRecords in /tmp; checkpoints on persistent disk).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -18,7 +18,7 @@ PY
 
 OUTPUT_ROOT="${OUTPUT_ROOT:-/home/ec2-user/tennis/outputs}"
 LOGDIR="${LOGDIR:-$OUTPUT_ROOT/logs/tennis_forehand_rear}"
-TFRECORD_DIR="${TFRECORD_DIR:-$OUTPUT_ROOT/tfrecords/tennis_forehand_rear_tfrecords}"
+TFRECORD_DIR="${TFRECORD_DIR:-/tmp/tennis_forehand_rear_tfrecords}"
 WEIGHTS_DIR="${WEIGHTS_DIR:-$OUTPUT_ROOT/weights}"
 CONFIG_SRC="${TCC_FOREHAND_CONFIG:-$(dirname "$0")/../configs/tennis_forehand_rear_persistent.yml}"
 RESNET="$WEIGHTS_DIR/resnet50v2_weights_tf_dim_ordering_tf_kernels_notop.h5"
@@ -33,9 +33,12 @@ fi
 
 if ! compgen -G "$TFRECORD_DIR/tennis_forehand_rear_train-"'*.tfrecord' > /dev/null; then
   echo "TFRecords not found in $TFRECORD_DIR" >&2
-  echo "Run: python tcc/scripts/prepare_forehand_tfrecords.py" >&2
+  echo "Run: python tcc/scripts/prepare_forehand_tfrecords.py  # syncs videos to /tmp and builds TFRecords" >&2
   exit 1
 fi
+
+FOREHAND_VIDEO_DIR="${FOREHAND_VIDEO_DIR:-/tmp/Forehands/Rear View}"
+echo "Forehand videos (if needed for prep/align): $FOREHAND_VIDEO_DIR"
 
 mkdir -p "$LOGDIR"
 cp "$CONFIG_SRC" "$LOGDIR/config.yml"

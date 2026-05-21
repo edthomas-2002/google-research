@@ -13,19 +13,25 @@ import shutil
 import subprocess
 import sys
 
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+  sys.path.insert(0, _REPO_ROOT)
+
+from tcc import forehand_data
+
 DATASET_NAME = 'tennis_forehand_rear'
 PAIR_DATASET_NAME = 'tennis_forehand_rear_pair'
-DEFAULT_VIDEO_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), 'Forehands', 'Rear View')
+DEFAULT_VIDEO_DIR = forehand_data.default_video_dir()
 _OUTPUT_ROOT = os.environ.get(
     'TCC_OUTPUT_ROOT', '/home/ec2-user/tennis/outputs')
+_DEFAULT_TMP = '/tmp'
 DEFAULT_LOGDIR = os.path.join(_OUTPUT_ROOT, 'logs', 'tennis_forehand_rear')
 PAIR_TFRECORD_DIR = os.path.join(
-    _OUTPUT_ROOT, 'pair_tfrecords', 'tennis_forehand_rear_pair_tfrecords')
+    _DEFAULT_TMP, 'tennis_forehand_rear_pair_tfrecords')
 DEFAULT_OUTPUT = os.path.join(
     _OUTPUT_ROOT, 'alignments', 'tennis_forehand_aligned.mp4')
-DEFAULT_PATH_TO_TFRECORDS = os.path.join(
-    _OUTPUT_ROOT, 'pair_tfrecords', '%s_tfrecords/')
+DEFAULT_PATH_TO_TFRECORDS = os.path.join(_DEFAULT_TMP, '%s_tfrecords/')
 
 
 def list_videos(video_dir):
@@ -69,6 +75,10 @@ def main():
 
   parser = argparse.ArgumentParser()
   parser.add_argument('--video_dir', default=DEFAULT_VIDEO_DIR)
+  parser.add_argument(
+      '--skip_download',
+      action='store_true',
+      help='Do not run aws s3 sync; fail if videos are missing.')
   parser.add_argument('--logdir', default=DEFAULT_LOGDIR)
   parser.add_argument('--output', default=DEFAULT_OUTPUT)
   parser.add_argument('--seed', type=int, default=None,
@@ -108,10 +118,11 @@ def main():
       help='Directory for two-clip pair TFRecords.')
   args = parser.parse_args()
 
-  video_dir = os.path.abspath(args.video_dir)
   if args.clip_a and args.clip_b:
     pair = [os.path.abspath(args.clip_a), os.path.abspath(args.clip_b)]
   else:
+    video_dir = forehand_data.ensure_forehand_videos(
+        args.video_dir, skip_download=args.skip_download)
     if args.from_val:
       videos = val_videos(
           video_dir, args.prepare_seed, args.val_fraction, args.max_videos)

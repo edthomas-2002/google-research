@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build train/val TFRecords from tcc/Forehands/Rear View/."""
+"""Build train/val TFRecords from forehand clips in /tmp (synced from S3)."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -14,14 +14,17 @@ import shutil
 import subprocess
 import sys
 
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+  sys.path.insert(0, _REPO_ROOT)
+
+from tcc import forehand_data
+
 DATASET_NAME = 'tennis_forehand_rear'
-DEFAULT_VIDEO_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), 'Forehands', 'Rear View')
-_OUTPUT_ROOT = os.environ.get(
-    'OUTPUT_ROOT',
-    os.environ.get('TCC_OUTPUT_ROOT', '/home/ec2-user/tennis/outputs'))
-DEFAULT_TFRECORD_DIR = os.path.join(
-    _OUTPUT_ROOT, 'tfrecords', 'tennis_forehand_rear_tfrecords')
+DEFAULT_VIDEO_DIR = forehand_data.default_video_dir()
+DEFAULT_TFRECORD_DIR = os.environ.get(
+    'TFRECORD_DIR', '/tmp/tennis_forehand_rear_tfrecords')
 SPLITS_JSON = os.path.join(
     os.path.dirname(os.path.dirname(__file__)),
     'data',
@@ -80,7 +83,11 @@ def main():
   parser.add_argument(
       '--video_dir',
       default=DEFAULT_VIDEO_DIR,
-      help='Directory containing forehand MP4 clips.')
+      help='Directory containing forehand MP4 clips (default: /tmp, from S3).')
+  parser.add_argument(
+      '--skip_download',
+      action='store_true',
+      help='Do not run aws s3 sync; fail if videos are missing.')
   parser.add_argument(
       '--output_dir',
       default=DEFAULT_TFRECORD_DIR,
@@ -121,9 +128,8 @@ def main():
       help='Target FPS when writing TFRecords (0 = native; use 0 if clips vary).')
   args = parser.parse_args()
 
-  video_dir = os.path.abspath(args.video_dir)
-  if not os.path.isdir(video_dir):
-    raise SystemExit('Video directory not found: %s' % video_dir)
+  video_dir = forehand_data.ensure_forehand_videos(
+      args.video_dir, skip_download=args.skip_download)
 
   videos = list_videos(video_dir)
   if not videos:

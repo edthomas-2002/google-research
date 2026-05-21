@@ -216,18 +216,39 @@ def get_lr_opt_global_step():
   return learning_rate, optimizer, global_step
 
 
+def _checkpoint_exists(prefix):
+  return tf.io.gfile.exists(prefix + '.index')
+
+
 def restore_ckpt(logdir, **ckpt_objects):
-  """Create and restore checkpoint (if one exists on the path)."""
-  # Instantiate checkpoint and restore from any pre-existing checkpoint.
-  # Since model is a dict we can insert multiple modular networks in this dict.
+  """Create checkpoint and restore last, else best, else legacy ckpt-*."""
   checkpoint = tf.train.Checkpoint(**ckpt_objects)
-  ckpt_manager = tf.train.CheckpointManager(
-      checkpoint,
-      directory=logdir,
-      max_to_keep=10,
-      keep_checkpoint_every_n_hours=1)
-  status = checkpoint.restore(ckpt_manager.latest_checkpoint)
-  return ckpt_manager, status, checkpoint
+  last_prefix = os.path.join(logdir, 'last')
+  best_prefix = os.path.join(logdir, 'best')
+  restore_path = None
+  if _checkpoint_exists(last_prefix):
+    restore_path = last_prefix
+  elif _checkpoint_exists(best_prefix):
+    restore_path = best_prefix
+  else:
+    restore_path = tf.train.latest_checkpoint(logdir)
+  status = checkpoint.restore(restore_path)
+  return checkpoint, last_prefix, best_prefix, status
+
+
+def save_training_checkpoints(checkpoint, logdir, last_prefix, best_prefix, loss,
+                              best_loss_holder):
+  """Save rolling last checkpoint; update best when loss improves."""
+  checkpoint.save(file_prefix=last_prefix)
+  loss_val = float(loss)
+  updated_best = False
+  if loss_val < best_loss_holder[0]:
+    best_loss_holder[0] = loss_val
+    checkpoint.save(file_prefix=best_prefix)
+    updated_best = True
+  for path in tf.io.gfile.glob(os.path.join(logdir, 'ckpt-*')):
+    tf.io.gfile.remove(path)
+  return updated_best
 
 
 def to_dict(config):

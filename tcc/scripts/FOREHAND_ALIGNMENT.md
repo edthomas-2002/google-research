@@ -1,16 +1,18 @@
 # Forehand rear-view TCC (GPU)
 
-Data: `tcc/Forehands/Rear View/` (~1257 clips)
+Forehand clips (~1257) are synced from **`s3://tennis-swing-data/Forehands/`** into **`/tmp/Forehands/Rear View/`** (ephemeral; re-sync after instance restart).
 
-Artifacts default under **`/home/ec2-user/tennis/outputs/`** (override with `OUTPUT_ROOT` for prepare/train; `TCC_OUTPUT_ROOT` for alignment — set both to the same path if you relocate).
+**TFRecords** and **pair TFRecords** also live in **`/tmp/`**. **Checkpoints**, **weights**, and **alignment MP4s** stay under **`/home/ec2-user/tennis/outputs/`** (`OUTPUT_ROOT` / `TCC_OUTPUT_ROOT`).
+
+Override paths with `FOREHAND_S3_URI`, `FOREHAND_VIDEO_DIR`, `TFRECORD_DIR`.
 
 ## Scripts in `tcc/scripts/`
 
 | Script | Purpose |
 |--------|---------|
-| `prepare_forehand_tfrecords.py` | Build train/val TFRecords + split counts JSON |
+| `prepare_forehand_tfrecords.py` | S3 sync (if needed) → TFRecords + split JSON |
 | `train_forehand.sh` | Train TCC on GPU (checkpoints on persistent disk) |
-| `align_random_pair.py` | Embed two clips and write side-by-side alignment MP4 |
+| `align_random_pair.py` | S3 sync (if needed) → embed two clips → alignment MP4 |
 | `install_gpu_tensorflow.sh` | Reinstall TensorFlow with CUDA if GPU not detected |
 
 ## One-time setup
@@ -34,10 +36,20 @@ python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU')
 
 ## 1. Build full forehand TFRecords (~1–3 hours)
 
+Downloads clips to `/tmp` when missing, then builds TFRecords:
+
 ```bash
 python tcc/scripts/prepare_forehand_tfrecords.py
-# Writes $OUTPUT_ROOT/tfrecords/tennis_forehand_rear_tfrecords/
-#       and tcc/data/tennis_forehand_rear_splits.json
+# Videos:  /tmp/Forehands/Rear View/
+# TFRecords: /tmp/tennis_forehand_rear_tfrecords/
+# Splits:  tcc/data/tennis_forehand_rear_splits.json
+```
+
+Manual sync only:
+
+```bash
+aws s3 sync s3://tennis-swing-data/Forehands/ /tmp/Forehands/
+python tcc/scripts/prepare_forehand_tfrecords.py --skip_download
 ```
 
 ## 2. Train TCC on GPU
@@ -46,7 +58,7 @@ python tcc/scripts/prepare_forehand_tfrecords.py
 bash tcc/scripts/train_forehand.sh
 # Config: tcc/configs/tennis_forehand_rear_persistent.yml
 #         -> $OUTPUT_ROOT/logs/tennis_forehand_rear/config.yml
-# Checkpoints: $OUTPUT_ROOT/logs/tennis_forehand_rear/
+# Checkpoints: $OUTPUT_ROOT/logs/tennis_forehand_rear/last.* and best.*
 ```
 
 Resume:
@@ -55,27 +67,23 @@ Resume:
 EXTRA_TRAIN_FLAGS="--force_train" bash tcc/scripts/train_forehand.sh
 ```
 
-Tune `TRAIN.MAX_ITERS` in `tcc/configs/tennis_forehand_rear_persistent.yml` (paper uses 150000).
-
 ## 3. Align two clips
 
 ```bash
-export TCC_OUTPUT_ROOT="${TCC_OUTPUT_ROOT:-$OUTPUT_ROOT}"
+export TCC_OUTPUT_ROOT="${TCC_OUTPUT_ROOT:-/home/ec2-user/tennis/outputs}"
 python tcc/scripts/align_random_pair.py --seed 42
-# Output: $OUTPUT_ROOT/alignments/tennis_forehand_aligned.mp4
-#         $OUTPUT_ROOT/alignments/tennis_forehand_aligned_pair.json
 ```
 
-Specific clips:
+Specific clips (under `/tmp` after sync):
 
 ```bash
 python tcc/scripts/align_random_pair.py \
-  --clip_a "tcc/Forehands/Rear View/NADAL_FH (10).mp4" \
-  --clip_b "tcc/Forehands/Rear View/FRITZ_FH (9).mp4" \
+  --clip_a "/tmp/Forehands/Rear View/NADAL_FH (10).mp4" \
+  --clip_b "/tmp/Forehands/Rear View/FRITZ_FH (9).mp4" \
   --output "$OUTPUT_ROOT/alignments/my_alignment.mp4"
 ```
 
-Validation-only pairs (same split as TFRecord prep):
+Validation-only pairs:
 
 ```bash
 python tcc/scripts/align_random_pair.py --seed 42 --from_val
@@ -89,4 +97,4 @@ bash tcc/scripts/train_forehand.sh
 python tcc/scripts/align_random_pair.py --seed 42 --from_val
 ```
 
-Skip prepare if TFRecords already exist; resume training with `EXTRA_TRAIN_FLAGS="--force_train"`.
+After a restart: re-run `prepare_forehand_tfrecords.py` (re-syncs `/tmp` and rebuilds TFRecords).

@@ -33,6 +33,7 @@ from tcc.datasets import create_dataset
 from tcc.utils import get_lr_fn
 from tcc.utils import get_lr_opt_global_step
 from tcc.utils import restore_ckpt
+from tcc.utils import save_training_checkpoints
 from tcc.utils import setup_train_dir
 from tcc.utils import Stopwatch
 
@@ -71,8 +72,9 @@ def train():
         os.path.join(logdir, 'train_logs'), flush_millis=10000)
 
     learning_rate, optimizer, global_step = get_lr_opt_global_step()
-    ckpt_manager, _, _ = restore_ckpt(
+    checkpoint, last_prefix, best_prefix, _ = restore_ckpt(
         logdir=logdir, optimizer=optimizer, **algo.model)
+    best_loss = [float('inf')]
 
     global_step_value = global_step.numpy()
 
@@ -119,9 +121,14 @@ def train():
             tf.summary.scalar('loss', loss, step=global_step)
             tf.summary.scalar('learning_rate', learning_rate, step=global_step)
 
-            # Save checkpoint.
+            # Save last checkpoint; update best when loss improves.
             if global_step_value % CONFIG.CHECKPOINT.SAVE_INTERVAL == 0:
-              ckpt_manager.save()
+              updated_best = save_training_checkpoints(
+                  checkpoint, logdir, last_prefix, best_prefix, loss, best_loss)
+              if updated_best:
+                logging.info(
+                    'Best checkpoint updated at iter %d (loss=%.3f).',
+                    global_step_value, best_loss[0])
               logging.info('Checkpoint saved at iter %d.', global_step_value)
 
             # Update global step.
@@ -142,9 +149,8 @@ def train():
       logging.info('Caught keyboard interrupt. Saving model before quitting.')
 
     finally:
-      # Save the final checkpoint.
-      ckpt_manager.save()
-      logging.info('Checkpoint saved at iter %d', global_step_value)
+      checkpoint.save(file_prefix=last_prefix)
+      logging.info('Last checkpoint saved at iter %d', global_step_value)
 
 
 def main(_):

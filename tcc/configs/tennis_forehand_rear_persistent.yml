@@ -1,5 +1,4 @@
-# Full-dataset TCC training with artifacts on persistent disk (EBS).
-# Milestone alignments at 20k / 30k / 40k iters via run_train_align_milestones.sh
+# Tennis forehand TCC: checkpoints/weights on persistent disk; TFRecords in /tmp.
 ALIGNMENT:
   CYCLE_LENGTH: 2
   FRACTION: 1.0
@@ -113,7 +112,7 @@ OPTIMIZER:
     - 10000
     NUM_WARMUP_STEPS: 0
   TYPE: AdamOptimizer
-PATH_TO_TFRECORDS: /home/ec2-user/tennis/outputs/tfrecords/%s_tfrecords/
+PATH_TO_TFRECORDS: /tmp/%s_tfrecords/
 SAL:
   DROPOUT_RATE: 0.0
   FC_LAYERS:
