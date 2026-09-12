@@ -53,7 +53,7 @@ EVAL:
   - algo_loss
   VAL_ITERS: 10
 IMAGE_SIZE: 224
-LOGDIR: /home/ec2-user/tennis/outputs/logs/tennis_forehand_rear/
+LOGDIR: /tmp/alignment_logs/
 LOGGING:
   REPORT_INTERVAL: 100
 MODEL:

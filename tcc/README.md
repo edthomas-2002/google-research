@@ -125,7 +125,10 @@ finds it difficult to count.
 
 Unlabeled clips. Sync from S3, then use the stock TFRecord / train / embed / visualize tools.
 
-Last/best checkpoints live under **`TCC_OUTPUT_ROOT`** (default `/home/ec2-user/tennis/outputs`). Videos, TFRecords, and ImageNet ResNet weights are in `/tmp` (same `wget` as `tcc/run.sh`).
+The original training checkpoints, videos, TFRecords, and ImageNet ResNet
+weights stay in `/tmp`. One last and one best checkpoint are also saved under
+**`TCC_OUTPUT_ROOT/logs/tennis_forehand_rear/{last,best}`** (where
+`TCC_OUTPUT_ROOT` defaults to `/home/ec2-user/tennis/outputs`).
 
 ```bash
 # One-time GPU TensorFlow (if the venv has CPU-only TF)
@@ -142,7 +145,7 @@ python -m tcc.dataset_preparation.videos_to_tfrecords \
   --splits_json tcc/data/tennis_forehand_rear_splits.json \
   --action_label -1
 
-# Checkpoints (last + best only) on persistent disk
+# Stock checkpoints in /tmp; last + best mirrored to persistent disk
 bash tcc/scripts/train_forehand.sh
 
 # Align two clips (GIF)

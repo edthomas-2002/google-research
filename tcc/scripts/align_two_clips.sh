@@ -13,7 +13,14 @@ cd "$ROOT"
 CLIP_A="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 CLIP_B="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
 OUTPUT="${3:-/tmp/aligned.gif}"
-LOGDIR="${TCC_OUTPUT_ROOT:-/home/ec2-user/tennis/outputs}/logs/tennis_forehand_rear"
+CHECKPOINT_ROOT="${TCC_OUTPUT_ROOT:-/home/ec2-user/tennis/outputs}/logs/tennis_forehand_rear"
+LOGDIR="$CHECKPOINT_ROOT/best"
+if [[ ! -f "$LOGDIR/checkpoint" ]]; then
+  LOGDIR="$CHECKPOINT_ROOT/last"
+fi
+if [[ ! -f "$LOGDIR/checkpoint" ]]; then
+  LOGDIR="$CHECKPOINT_ROOT"
+fi
 PAIR_DIR="/tmp/tennis_forehand_rear_pair_tfrecords"
 STAGING="${PAIR_DIR}_staging"
 EMB_PATH="$(dirname "$OUTPUT")/$(basename "$OUTPUT" .gif)_embeddings.npy"

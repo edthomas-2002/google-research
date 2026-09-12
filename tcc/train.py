@@ -33,7 +33,6 @@ from tcc.datasets import create_dataset
 from tcc.utils import get_lr_fn
 from tcc.utils import get_lr_opt_global_step
 from tcc.utils import restore_ckpt
-from tcc.utils import save_training_checkpoints
 from tcc.utils import setup_train_dir
 from tcc.utils import Stopwatch
 
@@ -42,6 +41,9 @@ flags.DEFINE_string('logdir', '/tmp/alignment_logs', 'Path to logs.')
 flags.DEFINE_string(
     'path_to_tfrecords', None,
     'Override CONFIG.PATH_TO_TFRECORDS (default /tmp/%s_tfrecords/).')
+flags.DEFINE_string(
+    'persistent_checkpoint_dir', None,
+    'If set, also keep one last and one best checkpoint in this directory.')
 flags.DEFINE_boolean('defun', True, 'Defun functions in algo for faster '
                      'training.')
 flags.DEFINE_boolean('debug', False, 'Plots detailed summaries on Tensorboard.')
@@ -77,9 +79,29 @@ def train():
         os.path.join(logdir, 'train_logs'), flush_millis=10000)
 
     learning_rate, optimizer, global_step = get_lr_opt_global_step()
-    checkpoint, last_prefix, best_prefix, _ = restore_ckpt(
-        logdir=logdir, optimizer=optimizer, **algo.model)
-    best_loss = [float('inf')]
+    best_loss = tf.Variable(
+        float('inf'), trainable=False, dtype=tf.float32, name='best_loss')
+    ckpt_manager, _, checkpoint = restore_ckpt(
+        logdir=logdir, optimizer=optimizer, best_loss=best_loss, **algo.model)
+
+    last_manager = None
+    best_manager = None
+    if FLAGS.persistent_checkpoint_dir:
+      last_manager = tf.train.CheckpointManager(
+          checkpoint,
+          directory=os.path.join(FLAGS.persistent_checkpoint_dir, 'last'),
+          max_to_keep=1)
+      best_manager = tf.train.CheckpointManager(
+          checkpoint,
+          directory=os.path.join(FLAGS.persistent_checkpoint_dir, 'best'),
+          max_to_keep=1)
+      persistent_checkpoint = (
+          last_manager.latest_checkpoint or
+          tf.train.latest_checkpoint(FLAGS.persistent_checkpoint_dir))
+      if not ckpt_manager.latest_checkpoint and persistent_checkpoint:
+        checkpoint.restore(persistent_checkpoint)
+        logging.info('Restored persistent checkpoint: %s',
+                     persistent_checkpoint)
 
     global_step_value = global_step.numpy()
 
@@ -126,14 +148,20 @@ def train():
             tf.summary.scalar('loss', loss, step=global_step)
             tf.summary.scalar('learning_rate', learning_rate, step=global_step)
 
-            # Save last checkpoint; update best when loss improves.
+            # Use the original local checkpoint flow, then persist last/best.
             if global_step_value % CONFIG.CHECKPOINT.SAVE_INTERVAL == 0:
-              updated_best = save_training_checkpoints(
-                  checkpoint, logdir, last_prefix, best_prefix, loss, best_loss)
+              loss_value = float(loss.numpy())
+              updated_best = loss_value < float(best_loss.numpy())
               if updated_best:
+                best_loss.assign(loss_value)
+              ckpt_manager.save()
+              if last_manager:
+                last_manager.save(checkpoint_number=int(global_step.numpy()))
+              if updated_best and best_manager:
+                best_manager.save(checkpoint_number=int(global_step.numpy()))
                 logging.info(
                     'Best checkpoint updated at iter %d (loss=%.3f).',
-                    global_step_value, best_loss[0])
+                    global_step_value, best_loss.numpy())
               logging.info('Checkpoint saved at iter %d.', global_step_value)
 
             # Update global step.
@@ -154,8 +182,10 @@ def train():
       logging.info('Caught keyboard interrupt. Saving model before quitting.')
 
     finally:
-      checkpoint.save(file_prefix=last_prefix)
-      logging.info('Last checkpoint saved at iter %d', global_step_value)
+      ckpt_manager.save()
+      if last_manager:
+        last_manager.save(checkpoint_number=int(global_step.numpy()))
+      logging.info('Checkpoint saved at iter %d', global_step_value)
 
 
 def main(_):
