@@ -65,6 +65,9 @@ flags.DEFINE_integer('seed', 42, 'Shuffle seed used when val_fraction > 0.')
 flags.DEFINE_string(
     'splits_json', None,
     'If set and val_fraction > 0, write {"train": N, "val": M} here.')
+flags.DEFINE_boolean(
+    'delete_videos', False,
+    'If True, delete each source video after its TFRecord shard is written.')
 FLAGS = flags.FLAGS
 
 
@@ -79,7 +82,8 @@ def _write(name, output_dir, filenames):
                    FLAGS.action_label, FLAGS.frame_labels,
                    FLAGS.expected_segments, FLAGS.fps, FLAGS.rotate,
                    FLAGS.resize, FLAGS.width, FLAGS.height,
-                   filenames=filenames)
+                   filenames=filenames,
+                   delete_videos=FLAGS.delete_videos)
 
 
 def main(_):

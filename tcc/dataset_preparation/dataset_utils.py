@@ -246,7 +246,7 @@ def label_timestamps(timestamps, annotations):
 def create_tfrecords(name, output_dir, input_dir, label_file, input_pattern,
                      files_per_shard, action_label, frame_labels,
                      expected_segments, orig_fps, rotate, resize, width,
-                     height, filenames=None):
+                     height, filenames=None, delete_videos=False):
   """Create TFRecords from videos in a given path.
 
   Args:
@@ -267,6 +267,7 @@ def create_tfrecords(name, output_dir, input_dir, label_file, input_pattern,
     height: int, Height of frames.
     filenames: optional list of basenames under input_dir. If None, files are
       discovered with input_pattern.
+    delete_videos: if True, delete each source video after its shard is written.
   Raises:
     ValueError: If invalid args are passed.
   """
@@ -291,14 +292,16 @@ def create_tfrecords(name, output_dir, input_dir, label_file, input_pattern,
   logging.info('Found %s files', len(filenames))
 
   names_to_seqs = {}
+  shard_source_files = []
   num_shards = int(math.ceil(len(filenames)/files_per_shard))
   len_num_shards = len(str(num_shards))
   shard_id = 0
   for i, filename in enumerate(filenames):
     seqs = {}
+    video_path = os.path.join(input_dir, filename)
 
     frames, video_timestamps, _ = video_to_frames(
-        os.path.join(input_dir, filename),
+        video_path,
         rotate,
         orig_fps,
         resize=resize,
@@ -318,6 +321,7 @@ def create_tfrecords(name, output_dir, input_dir, label_file, input_pattern,
       seqs['labels'] = label_timestamps(video_timestamps, merged_annotations)
 
     names_to_seqs[os.path.splitext(filename)[0]] = seqs
+    shard_source_files.append(video_path)
 
     if (i + 1) % files_per_shard == 0 or i == len(filenames) - 1:
       output_filename = os.path.join(
@@ -327,5 +331,11 @@ def create_tfrecords(name, output_dir, input_dir, label_file, input_pattern,
                                     str(num_shards).zfill(len_num_shards)))
       write_seqs_to_tfrecords(output_filename, names_to_seqs,
                               action_label, frame_labels)
+      if delete_videos:
+        for path in shard_source_files:
+          if gfile.exists(path):
+            gfile.remove(path)
+            logging.info('Deleted source video %s', path)
       shard_id += 1
       names_to_seqs = {}
+      shard_source_files = []
