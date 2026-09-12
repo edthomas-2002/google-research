@@ -246,7 +246,7 @@ def label_timestamps(timestamps, annotations):
 def create_tfrecords(name, output_dir, input_dir, label_file, input_pattern,
                      files_per_shard, action_label, frame_labels,
                      expected_segments, orig_fps, rotate, resize, width,
-                     height):
+                     height, filenames=None):
   """Create TFRecords from videos in a given path.
 
   Args:
@@ -265,6 +265,8 @@ def create_tfrecords(name, output_dir, input_dir, label_file, input_pattern,
     resize: boolean, if True resize to given height and width.
     width: int, Width of frames.
     height: int, Height of frames.
+    filenames: optional list of basenames under input_dir. If None, files are
+      discovered with input_pattern.
   Raises:
     ValueError: If invalid args are passed.
   """
@@ -276,15 +278,16 @@ def create_tfrecords(name, output_dir, input_dir, label_file, input_pattern,
     with open(os.path.join(label_file)) as labels_file:
       data = json.load(labels_file)
 
-  if not isinstance(input_pattern, list):
-    file_pattern = os.path.join(input_dir, input_pattern)
-    filenames = [os.path.basename(x) for x in gfile.glob(file_pattern)]
-  else:
-    filenames = []
-    for file_pattern in input_pattern:
-      file_pattern = os.path.join(input_dir, file_pattern)
-      filenames += [os.path.basename(x) for x in gfile.glob(file_pattern)]
-  filenames = sorted(filenames)
+  if filenames is None:
+    if not isinstance(input_pattern, list):
+      file_pattern = os.path.join(input_dir, input_pattern)
+      filenames = [os.path.basename(x) for x in gfile.glob(file_pattern)]
+    else:
+      filenames = []
+      for file_pattern in input_pattern:
+        file_pattern = os.path.join(input_dir, file_pattern)
+        filenames += [os.path.basename(x) for x in gfile.glob(file_pattern)]
+    filenames = sorted(filenames)
   logging.info('Found %s files', len(filenames))
 
   names_to_seqs = {}

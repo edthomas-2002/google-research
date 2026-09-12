@@ -1,4 +1,4 @@
-# Tennis forehand TCC: checkpoints/weights on persistent disk; TFRecords in /tmp.
+# Tennis forehand TCC. Checkpoints on persistent disk; TFRecords at /tmp/%s_tfrecords/.
 ALIGNMENT:
   CYCLE_LENGTH: 2
   FRACTION: 1.0
@@ -95,7 +95,7 @@ MODEL:
     USE_BN: true
   EMBEDDER_TYPE: conv
   L2_REG_WEIGHT: 1.0e-05
-  RESNET_PRETRAINED_WEIGHTS: /home/ec2-user/tennis/outputs/weights/resnet50v2_weights_tf_dim_ordering_tf_kernels_notop.h5
+  RESNET_PRETRAINED_WEIGHTS: /tmp/resnet50v2_weights_tf_dim_ordering_tf_kernels_notop.h5
   TRAIN_BASE: only_bn
   TRAIN_EMBEDDING: true
   VGGM:

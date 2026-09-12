@@ -2,8 +2,7 @@
 
 The codebase is useful for self-supervised representation learning on
 videos. It was used in the CVPR 2019 paper Temporal Cycle-Consistency
-Learning (https://arxiv.org/abs/1904.07846). Many functions will be useful for
-other sequential data too.
+Learning (https://arxiv.org/abs/1904.07846). Many functions will be useful for other sequential data too.
 
 # Self-supervised Learning Methods
 Currently supported self-supervised algorithms include:
@@ -121,6 +120,34 @@ the model learns to count but these embeddings might not be great for semantic
 tasks like phase classification. Consider adding ways by which your embedder
 finds it difficult to count.
 
+
+## Tennis forehand (rear view)
+
+Unlabeled clips. Sync from S3, then use the stock TFRecord / train / embed / visualize tools.
+
+Last/best checkpoints live under **`TCC_OUTPUT_ROOT`** (default `/home/ec2-user/tennis/outputs`). Videos, TFRecords, and ImageNet ResNet weights are in `/tmp` (same `wget` as `tcc/run.sh`).
+
+```bash
+# One-time GPU TensorFlow (if the venv has CPU-only TF)
+bash tcc/scripts/install_gpu_tensorflow.sh
+
+# Videos -> /tmp/Forehands/Rear View/
+bash tcc/scripts/pull_forehand_videos.sh
+
+# TFRecords -> /tmp/tennis_forehand_rear_tfrecords/  (CONFIG.PATH_TO_TFRECORDS)
+python -m tcc.dataset_preparation.videos_to_tfrecords \
+  --input_dir "/tmp/Forehands/Rear View" \
+  --name tennis_forehand_rear \
+  --val_fraction 0.1 \
+  --splits_json tcc/data/tennis_forehand_rear_splits.json \
+  --action_label -1
+
+# Checkpoints (last + best only) on persistent disk
+bash tcc/scripts/train_forehand.sh
+
+# Align two clips (GIF)
+bash tcc/scripts/align_two_clips.sh /path/to/a.mp4 /path/to/b.mp4
+```
 
 ## Citation
 

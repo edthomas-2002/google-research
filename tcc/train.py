@@ -39,6 +39,9 @@ from tcc.utils import Stopwatch
 
 
 flags.DEFINE_string('logdir', '/tmp/alignment_logs', 'Path to logs.')
+flags.DEFINE_string(
+    'path_to_tfrecords', None,
+    'Override CONFIG.PATH_TO_TFRECORDS (default /tmp/%s_tfrecords/).')
 flags.DEFINE_boolean('defun', True, 'Defun functions in algo for faster '
                      'training.')
 flags.DEFINE_boolean('debug', False, 'Plots detailed summaries on Tensorboard.')
@@ -60,6 +63,8 @@ def train():
   CONFIG.LOGDIR = FLAGS.logdir
   logdir = CONFIG.LOGDIR
   setup_train_dir(logdir)
+  if FLAGS.path_to_tfrecords:
+    CONFIG.PATH_TO_TFRECORDS = FLAGS.path_to_tfrecords
 
   # Common code for multigpu and single gpu. Set devices here if you don't
   # want to use all the GPUs on the machine. Default is to use all GPUs.

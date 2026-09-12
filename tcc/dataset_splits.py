@@ -35,9 +35,9 @@ DATASETS = {
     'squats': {'train': 114, 'val': 115},
     'tennis_forehand': {'train': 79, 'val': 74},
     'tennis_serve': {'train': 115, 'val': 68},
-    # Counts for Forehands/Rear View are written by scripts/prepare_forehand_tfrecords.py
+    # Counts written by videos_to_tfrecords --val_fraction --splits_json.
     'tennis_forehand_rear': {'train': 0, 'val': 0},
-    # Two-clip alignment subset (see scripts/align_random_pair.py).
+    # Two-clip alignment subset (see scripts/align_two_clips.sh).
     'tennis_forehand_rear_pair': {'train': 0, 'val': 2},
 }
 
