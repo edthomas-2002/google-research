@@ -152,23 +152,32 @@ def video_to_frames(video_filename, rotate, fps=0, resize=False,
   logging.info('Loading %s', video_filename)
   cap = cv2.VideoCapture(video_filename)
 
+  source_fps = cap.get(cv2.CAP_PROP_FPS)
   if fps == 0:
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    keep_frequency = 1
+    fps = source_fps
+    sample_period_seconds = None
   else:
-    if fps > cap.get(cv2.CAP_PROP_FPS):
+    rounded_source_fps = int(source_fps + 0.5)
+    if fps > rounded_source_fps:
       raise ValueError('Cannot sample at a frequency higher than FPS of video')
-    keep_frequency = int(float(cap.get(cv2.CAP_PROP_FPS)) / fps)
+    sample_period_seconds = 1.0 / fps
 
   frames = []
   timestamps = []
   counter = 0
+  next_sample_time = 0.0
   if cap.isOpened():
     while True:
       success, frame_bgr = cap.read()
       if not success:
         break
-      if counter % keep_frequency == 0:
+      timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+      if not timestamp and source_fps:
+        timestamp = counter / source_fps
+      keep_frame = (
+          sample_period_seconds is None or
+          timestamp + 1e-9 >= next_sample_time)
+      if keep_frame:
         # Convert BGR to RGB
         frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         if resize:
@@ -177,8 +186,12 @@ def video_to_frames(video_filename, rotate, fps=0, resize=False,
           frame_rgb = cv2.transpose(frame_rgb)
           frame_rgb = cv2.flip(frame_rgb, 1)
         frames.append(frame_rgb)
-        timestamps.append(cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0)
+        timestamps.append(timestamp)
+        if sample_period_seconds is not None:
+          while next_sample_time <= timestamp + 1e-9:
+            next_sample_time += sample_period_seconds
       counter += 1
+  cap.release()
   return frames, timestamps, fps
 
 

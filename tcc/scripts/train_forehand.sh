@@ -7,9 +7,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
+source tcc-env/bin/activate
 OUTPUT_ROOT="${TCC_OUTPUT_ROOT:-/home/ec2-user/tennis/outputs}"
 LOGDIR="/tmp/alignment_logs"
 PERSISTENT_DIR="$OUTPUT_ROOT/logs/tennis_forehand_rear"
+WANDB_ENTITY="${WANDB_ENTITY:-edthomas-2002-private}"
+WANDB_PROJECT="${WANDB_PROJECT:-tennis-forehand-tcc}"
+WANDB_RUN_NAME="${WANDB_RUN_NAME:-forehand-tcc}"
 CONFIG_SRC="${TCC_FOREHAND_CONFIG:-$ROOT/tcc/configs/tennis_forehand_rear.yml}"
 RESNET="/tmp/resnet50v2_weights_tf_dim_ordering_tf_kernels_notop.h5"
 TFRECORD_DIR="/tmp/tennis_forehand_rear_tfrecords"
@@ -24,7 +28,7 @@ fi
 
 if ! compgen -G "$TFRECORD_DIR/tennis_forehand_rear_train-"'*.tfrecord' > /dev/null; then
   echo "TFRecords not found in $TFRECORD_DIR" >&2
-  echo "Run: python -m tcc.dataset_preparation.videos_to_tfrecords --input_dir \"/tmp/Forehands/Rear View\" --name tennis_forehand_rear --val_fraction 0.1 --splits_json tcc/data/tennis_forehand_rear_splits.json --action_label -1" >&2
+  echo "Run: bash tcc/scripts/prepare_forehand_tfrecords.sh" >&2
   exit 1
 fi
 
@@ -49,11 +53,11 @@ echo "local checkpoints=$LOGDIR"
 echo "persistent last/best=$PERSISTENT_DIR"
 
 EXTRA_TRAIN_FLAGS="${EXTRA_TRAIN_FLAGS:-}"
-if [[ -d "$LOGDIR/train_logs" ]]; then
-  EXTRA_TRAIN_FLAGS="--force_train $EXTRA_TRAIN_FLAGS"
-fi
 python -m tcc.train \
   --alsologtostderr \
   --logdir="$LOGDIR" \
   --persistent_checkpoint_dir="$PERSISTENT_DIR" \
+  --wandb_entity="$WANDB_ENTITY" \
+  --wandb_project="$WANDB_PROJECT" \
+  --wandb_run_name="$WANDB_RUN_NAME" \
   $EXTRA_TRAIN_FLAGS

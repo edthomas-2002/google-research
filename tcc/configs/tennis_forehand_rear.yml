@@ -33,8 +33,7 @@ CLASSIFICATION:
   LABEL_SMOOTHING: 0.0
 DATA:
   FRAME_LABELS: false
-  FRAME_STRIDE: 1
-  NUM_PREFETCH_BATCHES: 2
+  FRAME_STRIDE: 5
   NUM_STEPS: 2
   PER_CLASS: false
   PER_DATASET_FRACTION: 1.0
@@ -42,16 +41,16 @@ DATA:
   SAMPLE_ALL_STRIDE: 2
   SAMPLING_STRATEGY: offset_uniform
   SHUFFLE_QUEUE_SIZE: 0
-  STRIDE: 12
+  # Required by the input pipeline but inactive for offset_uniform sampling.
+  STRIDE: 16
 DATASETS:
 - tennis_forehand_rear
 EVAL:
   BATCH_SIZE: 4
-  FRAMES_PER_BATCH: 30
   NUM_FRAMES: 16
   TASKS:
   - algo_loss
-  VAL_ITERS: 10
+  VAL_ITERS: 32
 IMAGE_SIZE: 224
 LOGDIR: /tmp/alignment_logs/
 LOGGING:
@@ -94,13 +93,17 @@ MODEL:
     L2_NORMALIZE: false
     USE_BN: true
   EMBEDDER_TYPE: conv
-  L2_REG_WEIGHT: 1.0e-05
+  L2_REG_WEIGHT: 0.0
   RESNET_PRETRAINED_WEIGHTS: /tmp/resnet50v2_weights_tf_dim_ordering_tf_kernels_notop.h5
   TRAIN_BASE: only_bn
   TRAIN_EMBEDDING: true
   VGGM:
     USE_BN: true
 OPTIMIZER:
+  BETA_1: 0.9
+  BETA_2: 0.999
+  EPSILON: 1.0e-07
+  GLOBAL_CLIPNORM: 1.0
   LR:
     DECAY_TYPE: fixed
     EXP_DECAY_RATE: 0.97
@@ -111,7 +114,8 @@ OPTIMIZER:
     - 5000
     - 10000
     NUM_WARMUP_STEPS: 0
-  TYPE: AdamOptimizer
+  TYPE: AdamW
+  WEIGHT_DECAY: 0.0001
 PATH_TO_TFRECORDS: /tmp/%s_tfrecords/
 SAL:
   DROPOUT_RATE: 0.0
@@ -132,5 +136,4 @@ TRAIN:
   BATCH_SIZE: 4
   MAX_ITERS: 150000
   NUM_FRAMES: 16
-  VISUALIZE_INTERVAL: 500
 TRAINING_ALGO: alignment

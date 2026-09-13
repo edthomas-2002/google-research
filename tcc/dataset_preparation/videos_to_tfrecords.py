@@ -27,6 +27,7 @@ from absl import app
 from absl import flags
 from absl import logging
 
+import cv2
 import tensorflow.compat.v2 as tf
 
 from tcc.dataset_preparation.dataset_utils import create_tfrecords
@@ -68,12 +69,35 @@ flags.DEFINE_string(
 flags.DEFINE_boolean(
     'delete_videos', False,
     'If True, delete each source video after its TFRecord shard is written.')
+flags.DEFINE_boolean(
+    'drop_videos_below_fps', False,
+    'If True, exclude videos whose source FPS is below --fps.')
 FLAGS = flags.FLAGS
 
 
 def _list_filenames(input_dir, file_pattern):
   file_glob = os.path.join(input_dir, file_pattern)
   return sorted(os.path.basename(x) for x in tf.io.gfile.glob(file_glob))
+
+
+def _drop_videos_below_fps(input_dir, filenames, target_fps):
+  """Returns filenames meeting target FPS and the number excluded."""
+  kept = []
+  dropped = 0
+  for filename in filenames:
+    path = os.path.join(input_dir, filename)
+    cap = cv2.VideoCapture(path)
+    source_fps = cap.get(cv2.CAP_PROP_FPS) if cap.isOpened() else 0
+    cap.release()
+    rounded_source_fps = int(source_fps + 0.5)
+    if source_fps > 0 and rounded_source_fps >= target_fps:
+      kept.append(filename)
+    else:
+      dropped += 1
+      logging.warning(
+          'Dropping %s (source FPS: %.3f, rounded FPS: %d, target FPS: %d)',
+          path, source_fps, rounded_source_fps, target_fps)
+  return kept, dropped
 
 
 def _write(name, output_dir, filenames):
@@ -98,6 +122,17 @@ def main(_):
     raise ValueError('No files matching %s in %s' %
                      (FLAGS.file_pattern, FLAGS.input_dir))
 
+  dropped = 0
+  if FLAGS.drop_videos_below_fps:
+    if FLAGS.fps <= 0:
+      raise app.UsageError('--drop_videos_below_fps requires --fps > 0.')
+    filenames, dropped = _drop_videos_below_fps(
+        FLAGS.input_dir, filenames, FLAGS.fps)
+    if not filenames:
+      raise ValueError('All videos were below the target FPS.')
+    logging.info('Keeping %d videos and dropping %d below %d FPS.',
+                 len(filenames), dropped, FLAGS.fps)
+
   if FLAGS.val_fraction > 0:
     files = list(filenames)
     random.Random(FLAGS.seed).shuffle(files)
@@ -115,7 +150,11 @@ def main(_):
       if splits_dir:
         tf.io.gfile.makedirs(splits_dir)
       with tf.io.gfile.GFile(FLAGS.splits_json, 'w') as f:
-        json.dump({'train': len(train_files), 'val': len(val_files)}, f)
+        json.dump({
+            'train': len(train_files),
+            'val': len(val_files),
+            'dropped': dropped,
+        }, f)
       logging.info('Wrote split counts to %s', FLAGS.splits_json)
   else:
     _write(FLAGS.name, output_dir, filenames)

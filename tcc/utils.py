@@ -200,11 +200,22 @@ def get_optimizer(optimizer_config, learning_rate):
   """Returns optimizer based on config and learning rate."""
   if optimizer_config.TYPE == 'AdamOptimizer':
     opt = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+  elif optimizer_config.TYPE == 'AdamW':
+    opt = tf.keras.optimizers.AdamW(
+        learning_rate=learning_rate,
+        weight_decay=optimizer_config.get('WEIGHT_DECAY', 1e-4),
+        beta_1=optimizer_config.get('BETA_1', 0.9),
+        beta_2=optimizer_config.get('BETA_2', 0.999),
+        epsilon=optimizer_config.get('EPSILON', 1e-7),
+        global_clipnorm=optimizer_config.get('GLOBAL_CLIPNORM', None))
+    # Weight decay is useful for kernels, but generally harmful for affine
+    # normalization parameters and biases.
+    opt.exclude_from_weight_decay(var_names=['bias', 'beta', 'gamma'])
   elif optimizer_config.TYPE == 'MomentumOptimizer':
     opt = tf.keras.optimizers.SGD(learning_rate=learning_rate, momentum=0.9)
   else:
     raise ValueError('Optimizer %s not supported. Only support the following'
-                     'optimizers: AdamOptimizer, MomentumOptimizer .')
+                     'optimizers: AdamOptimizer, AdamW, MomentumOptimizer .')
   return opt
 
 

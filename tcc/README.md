@@ -126,24 +126,27 @@ finds it difficult to count.
 Unlabeled clips. Sync from S3, then use the stock TFRecord / train / embed / visualize tools.
 
 The original training checkpoints, videos, TFRecords, and ImageNet ResNet
-weights stay in `/tmp`. One last and one best checkpoint are also saved under
+weights stay in `/tmp`. One last and one best-validation-loss checkpoint are
+also saved under
 **`TCC_OUTPUT_ROOT/logs/tennis_forehand_rear/{last,best}`** (where
 `TCC_OUTPUT_ROOT` defaults to `/home/ec2-user/tennis/outputs`).
+Training uses AdamW (`1e-4` learning rate and weight decay), validates over
+roughly one validation-set pass on one GPU every 1000 iterations, and trains
+for 150k iterations.
+W&B logs to `edthomas-2002-private/tennis-forehand-tcc`. Run names use
+`forehand-tcc-<UTC start timestamp>`; all three values can be overridden with
+`WANDB_ENTITY`, `WANDB_PROJECT`, and `WANDB_RUN_NAME`.
 
 ```bash
 # One-time GPU TensorFlow (if the venv has CPU-only TF)
 bash tcc/scripts/install_gpu_tensorflow.sh
+wandb login
 
 # Videos -> /tmp/Forehands/Rear View/
 bash tcc/scripts/pull_forehand_videos.sh
 
-# TFRecords -> /tmp/tennis_forehand_rear_tfrecords/  (CONFIG.PATH_TO_TFRECORDS)
-python -m tcc.dataset_preparation.videos_to_tfrecords \
-  --input_dir "/tmp/Forehands/Rear View" \
-  --name tennis_forehand_rear \
-  --val_fraction 0.1 \
-  --splits_json tcc/data/tennis_forehand_rear_splits.json \
-  --action_label -1
+# Sample at 30 FPS, drop slower clips, and write TFRecords to /tmp
+bash tcc/scripts/prepare_forehand_tfrecords.sh
 
 # Stock checkpoints in /tmp; last + best mirrored to persistent disk
 bash tcc/scripts/train_forehand.sh

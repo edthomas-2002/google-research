@@ -220,7 +220,7 @@ CONFIG.TCN.REG_LAMBDA = 0.002
 # Optimizer params
 # ******************************************************************************
 CONFIG.OPTIMIZER = edict()
-# Supported optimizers are: AdamOptimizer, MomentumOptimizer
+# Supported optimizers are: AdamOptimizer, AdamW, MomentumOptimizer
 CONFIG.OPTIMIZER.TYPE = 'AdamOptimizer'
 
 CONFIG.OPTIMIZER.LR = edict()
