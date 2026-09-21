@@ -70,6 +70,10 @@ flags.DEFINE_boolean(
     'delete_videos', False,
     'If True, delete each source video after its TFRecord shard is written.')
 flags.DEFINE_boolean(
+    'atomic_delete_videos', False,
+    'If True, delete converted source videos only after all TFRecords are '
+    'written successfully. Cannot be combined with --delete_videos.')
+flags.DEFINE_boolean(
     'drop_videos_below_fps', False,
     'If True, exclude videos whose source FPS is below --fps.')
 FLAGS = flags.FLAGS
@@ -110,11 +114,22 @@ def _write(name, output_dir, filenames):
                    delete_videos=FLAGS.delete_videos)
 
 
+def _delete_source_videos(input_dir, filenames):
+  for filename in filenames:
+    path = os.path.join(input_dir, filename)
+    if tf.io.gfile.exists(path):
+      tf.io.gfile.remove(path)
+      logging.info('Deleted source video %s', path)
+
+
 def main(_):
   if not FLAGS.name:
     raise app.UsageError('--name is required.')
   if not FLAGS.input_dir:
     raise app.UsageError('--input_dir is required.')
+  if FLAGS.delete_videos and FLAGS.atomic_delete_videos:
+    raise app.UsageError(
+        'Use only one of --delete_videos and --atomic_delete_videos.')
 
   output_dir = FLAGS.output_dir or ('/tmp/%s_tfrecords/' % FLAGS.name)
   filenames = _list_filenames(FLAGS.input_dir, FLAGS.file_pattern)
@@ -133,6 +148,7 @@ def main(_):
     logging.info('Keeping %d videos and dropping %d below %d FPS.',
                  len(filenames), dropped, FLAGS.fps)
 
+  converted = filenames
   if FLAGS.val_fraction > 0:
     files = list(filenames)
     random.Random(FLAGS.seed).shuffle(files)
@@ -141,6 +157,7 @@ def main(_):
       n_val = len(files) - 1
     val_files = files[:n_val]
     train_files = files[n_val:]
+    converted = train_files + val_files
     logging.info('Split %d videos: train=%d val=%d', len(files),
                  len(train_files), len(val_files))
     _write('%s_train' % FLAGS.name, output_dir, train_files)
@@ -158,6 +175,10 @@ def main(_):
       logging.info('Wrote split counts to %s', FLAGS.splits_json)
   else:
     _write(FLAGS.name, output_dir, filenames)
+
+  if FLAGS.atomic_delete_videos:
+    _delete_source_videos(FLAGS.input_dir, converted)
+    logging.info('Deleted %d converted source videos.', len(converted))
 
 
 if __name__ == '__main__':

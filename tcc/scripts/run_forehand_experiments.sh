@@ -13,7 +13,7 @@ BASE_CONFIG="${TCC_FOREHAND_BASE_CONFIG:-$ROOT/tcc/configs/tennis_forehand_rear.
 EXPERIMENT_ROOT="${TCC_EXPERIMENT_ROOT:-/tmp/tcc_forehand_experiments}"
 OUTPUT_ROOT="${TCC_OUTPUT_ROOT:-/home/ec2-user/tennis/outputs}"
 PERSISTENT_ROOT="${TCC_EXPERIMENT_OUTPUT_ROOT:-$OUTPUT_ROOT/logs/tennis_forehand_rear_experiments}"
-EXPERIMENTS="${EXPERIMENTS:-baseline batch_4 frames_16 context_short context_long temperature_sharp temperature_soft backbone_frozen}"
+EXPERIMENTS="${EXPERIMENTS:-baseline context_short context_long temperature_sharp temperature_soft backbone_frozen}"
 
 mkdir -p "$EXPERIMENT_ROOT/configs" "$PERSISTENT_ROOT"
 
@@ -32,7 +32,7 @@ write_config() {
     -v batch_size="$batch_size" \
     -v num_frames="$num_frames" '
       /^[[:space:]]+MAX_ITERS:/ {
-        sub(/MAX_ITERS:.*/, "MAX_ITERS: 15000")
+        sub(/MAX_ITERS:.*/, "MAX_ITERS: 10000")
       }
       /^[[:space:]]+FRAME_STRIDE:/ {
         sub(/FRAME_STRIDE:.*/, "FRAME_STRIDE: " frame_stride)
@@ -62,18 +62,6 @@ for experiment in $EXPERIMENTS; do
       frame_stride=5
       temperature=0.1
       train_base=only_bn
-      ;;
-    batch_4)
-      frame_stride=5
-      temperature=0.1
-      train_base=only_bn
-      batch_size=4
-      ;;
-    frames_16)
-      frame_stride=5
-      temperature=0.1
-      train_base=only_bn
-      num_frames=16
       ;;
     context_short)
       frame_stride=2
@@ -114,7 +102,7 @@ for experiment in $EXPERIMENTS; do
     "$batch_size" "$num_frames"
 
   echo
-  echo "=== $experiment: batch=$batch_size frames=$num_frames stride=$frame_stride temperature=$temperature train_base=$train_base max_iters=15000 ==="
+  echo "=== $experiment: batch=$batch_size frames=$num_frames stride=$frame_stride temperature=$temperature train_base=$train_base max_iters=10000 ==="
   if [[ "${TCC_EXPERIMENT_DRY_RUN:-0}" == "1" ]]; then
     continue
   fi

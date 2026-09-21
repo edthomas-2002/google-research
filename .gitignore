@@ -22,3 +22,4 @@ dist/
 # Custom
 tcc-env/
 tcc/Forehands/
+wandb/

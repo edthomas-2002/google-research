@@ -136,28 +136,28 @@ W&B logs to `edthomas-2002-private/tennis-forehand-tcc`. Run names use
 `forehand-tcc-<UTC start timestamp>`; all three values can be overridden with
 `WANDB_ENTITY`, `WANDB_PROJECT`, and `WANDB_RUN_NAME`.
 
-The first-round experiment script runs eight sequential 15k-iteration screens.
+The first-round experiment script runs six sequential 10k-iteration screens.
 It starts from the original TCC batch size (2) and frame count (20), then tests
-batch size 4, 16 frames, short and long temporal context, sharper and softer
-alignment temperatures, and a fully frozen ResNet backbone. Each experiment
-changes one baseline setting and writes to isolated local and persistent
-directories.
+short and long temporal context, sharper and softer alignment temperatures,
+and a fully frozen ResNet backbone. Each experiment changes one baseline
+setting and writes to isolated local and persistent directories.
 
 ```bash
 # One-time GPU TensorFlow (if the venv has CPU-only TF)
 bash tcc/scripts/install_gpu_tensorflow.sh
 wandb login
 
-# Videos -> /tmp/Forehands/Rear View/
+# Videos -> /home/ec2-user/tennis/videos/Forehands/Rear View/
 bash tcc/scripts/pull_forehand_videos.sh
 
-# Sample at 30 FPS, drop slower clips, and write TFRecords to /tmp
+# Sample at 24 FPS, drop slower clips, write TFRecords to disk, copy to /tmp.
+# Converted source clips are deleted only after conversion succeeds.
 bash tcc/scripts/prepare_forehand_tfrecords.sh
 
 # Stock checkpoints in /tmp; last + best mirrored to persistent disk
 bash tcc/scripts/train_forehand.sh
 
-# First-round encoder sweep (eight runs, 15k iterations each)
+# First-round encoder sweep (six runs, 10k iterations each)
 bash tcc/scripts/run_forehand_experiments.sh
 
 # Or run a subset
