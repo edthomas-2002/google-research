@@ -9,8 +9,8 @@ cd "$ROOT"
 
 source tcc-env/bin/activate
 OUTPUT_ROOT="${TCC_OUTPUT_ROOT:-/home/ec2-user/tennis/outputs}"
-LOGDIR="/tmp/alignment_logs"
-PERSISTENT_DIR="$OUTPUT_ROOT/logs/tennis_forehand_rear"
+LOGDIR="${TCC_LOGDIR:-/tmp/alignment_logs}"
+PERSISTENT_DIR="${TCC_PERSISTENT_DIR:-$OUTPUT_ROOT/logs/tennis_forehand_rear}"
 WANDB_ENTITY="${WANDB_ENTITY:-edthomas-2002-private}"
 WANDB_PROJECT="${WANDB_PROJECT:-tennis-forehand-tcc}"
 WANDB_RUN_NAME="${WANDB_RUN_NAME:-forehand-tcc}"

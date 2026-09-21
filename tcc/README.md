@@ -126,16 +126,22 @@ finds it difficult to count.
 Unlabeled clips. Sync from S3, then use the stock TFRecord / train / embed / visualize tools.
 
 The original training checkpoints, videos, TFRecords, and ImageNet ResNet
-weights stay in `/tmp`. One last and one best-validation-loss checkpoint are
+weights stay in `/tmp`. One last and one best-training-loss checkpoint are
 also saved under
 **`TCC_OUTPUT_ROOT/logs/tennis_forehand_rear/{last,best}`** (where
 `TCC_OUTPUT_ROOT` defaults to `/home/ec2-user/tennis/outputs`).
-Training uses AdamW (`1e-4` learning rate and weight decay), validates over
-roughly one validation-set pass on one GPU every 1000 iterations, and trains
-for 150k iterations.
+Training uses AdamW (`1e-4` learning rate and weight decay) and trains for
+150k iterations.
 W&B logs to `edthomas-2002-private/tennis-forehand-tcc`. Run names use
 `forehand-tcc-<UTC start timestamp>`; all three values can be overridden with
 `WANDB_ENTITY`, `WANDB_PROJECT`, and `WANDB_RUN_NAME`.
+
+The first-round experiment script runs eight sequential 15k-iteration screens.
+It starts from the original TCC batch size (2) and frame count (20), then tests
+batch size 4, 16 frames, short and long temporal context, sharper and softer
+alignment temperatures, and a fully frozen ResNet backbone. Each experiment
+changes one baseline setting and writes to isolated local and persistent
+directories.
 
 ```bash
 # One-time GPU TensorFlow (if the venv has CPU-only TF)
@@ -150,6 +156,13 @@ bash tcc/scripts/prepare_forehand_tfrecords.sh
 
 # Stock checkpoints in /tmp; last + best mirrored to persistent disk
 bash tcc/scripts/train_forehand.sh
+
+# First-round encoder sweep (eight runs, 15k iterations each)
+bash tcc/scripts/run_forehand_experiments.sh
+
+# Or run a subset
+EXPERIMENTS="baseline context_short" \
+  bash tcc/scripts/run_forehand_experiments.sh
 
 # Align two clips (GIF)
 bash tcc/scripts/align_two_clips.sh /path/to/a.mp4 /path/to/b.mp4

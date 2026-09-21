@@ -96,15 +96,15 @@ def train():
         os.path.join(logdir, 'train_logs'), flush_millis=10000)
 
     learning_rate, optimizer, global_step = get_lr_opt_global_step()
-    best_val_loss = tf.Variable(
-        float('inf'), trainable=False, dtype=tf.float32, name='best_val_loss')
-    best_val_step = tf.Variable(
-        -1, trainable=False, dtype=tf.int64, name='best_val_step')
+    best_loss = tf.Variable(
+        float('inf'), trainable=False, dtype=tf.float32, name='best_loss')
+    best_step = tf.Variable(
+        -1, trainable=False, dtype=tf.int64, name='best_step')
     ckpt_manager, _, checkpoint = restore_ckpt(
         logdir=logdir,
         optimizer=optimizer,
-        best_val_loss=best_val_loss,
-        best_val_step=best_val_step,
+        best_loss=best_loss,
+        best_step=best_step,
         **algo.model)
 
     last_manager = None
@@ -132,19 +132,13 @@ def train():
     # manually. Calling lr_fn each iteration to get current learning rate.
     lr_fn = get_lr_fn(CONFIG.OPTIMIZER)
 
-    # Setup Dataset Iterators from train and val datasets.
+    # Setup Dataset Iterator.
     batch_size_per_replica = CONFIG.TRAIN.BATCH_SIZE
     total_batch_size = batch_size_per_replica * strategy.num_replicas_in_sync
     train_ds = create_dataset('train', mode='train',
                               batch_size=total_batch_size,
                               return_iterator=False)
     train_iterator = strategy.make_dataset_iterator(train_ds)
-    val_batch_size = (
-        CONFIG.EVAL.BATCH_SIZE * strategy.num_replicas_in_sync)
-    val_ds = create_dataset('val', mode='eval',
-                            batch_size=val_batch_size,
-                            return_iterator=False)
-    val_iterator = strategy.make_dataset_iterator(val_ds)
 
     def train_step(data):
       steps = data['chosen_steps']
@@ -152,31 +146,14 @@ def train():
       loss = algo.train_one_iter(data, steps, seq_lens, global_step, optimizer)
       return loss
 
-    def val_step(data):
-      steps = data['chosen_steps']
-      seq_lens = data['seq_lens']
-      embs = algo.call(data, steps, seq_lens, training=False)
-      return algo.compute_loss(
-          embs,
-          steps,
-          seq_lens,
-          global_step,
-          training=False,
-          frame_labels=data['frame_labels'],
-          seq_labels=data['seq_labels'])
-
     # This reduction only affects reporting, not the gradients.
     # pylint: disable=g-long-lambda
     dist_train = lambda it: strategy.reduce(
         tf.distribute.ReduceOp.SUM, strategy.experimental_run(train_step, it),
         axis=None)
-    dist_val = lambda it: strategy.reduce(
-        tf.distribute.ReduceOp.SUM, strategy.experimental_run(val_step, it),
-        axis=None) / strategy.num_replicas_in_sync
     # pylint: enable=g-long-lambda
     if FLAGS.defun:
       dist_train = tf.function(dist_train)
-      dist_val = tf.function(dist_val)
 
     stopwatch = Stopwatch()
 
@@ -198,34 +175,24 @@ def train():
 
             # Use the original local checkpoint flow, then persist last/best.
             if global_step_value % CONFIG.CHECKPOINT.SAVE_INTERVAL == 0:
-              val_losses = [
-                  dist_val(val_iterator)
-                  for _ in range(CONFIG.EVAL.VAL_ITERS)
-              ]
-              val_loss = tf.reduce_mean(tf.stack(val_losses))
-              tf.summary.scalar('val_loss', val_loss, step=global_step)
-              val_loss_value = float(val_loss.numpy())
-              updated_best = (
-                  val_loss_value < float(best_val_loss.numpy()))
+              loss_value = float(loss.numpy())
+              updated_best = loss_value < float(best_loss.numpy())
               if updated_best:
-                best_val_loss.assign(val_loss_value)
-                best_val_step.assign(global_step_value)
+                best_loss.assign(loss_value)
+                best_step.assign(global_step_value)
               ckpt_manager.save()
               if last_manager:
                 last_manager.save(checkpoint_number=int(global_step.numpy()))
               if updated_best and best_manager:
                 best_manager.save(checkpoint_number=int(global_step.numpy()))
                 logging.info(
-                    'Best checkpoint updated at iter %d (val loss=%.3f).',
-                    global_step_value, best_val_loss.numpy())
-              logging.info('Validation loss at iter %d: %.3f.',
-                           global_step_value, val_loss_value)
+                    'Best checkpoint updated at iter %d (train loss=%.3f).',
+                    global_step_value, best_loss.numpy())
               logging.info('Checkpoint saved at iter %d.', global_step_value)
               wandb_metrics.update({
-                  'validation/loss': val_loss_value,
-                  'validation/best_loss': float(best_val_loss.numpy()),
+                  'train/best_loss': float(best_loss.numpy()),
                   'checkpoint/is_best': int(updated_best),
-                  'checkpoint/best_step': int(best_val_step.numpy()),
+                  'checkpoint/best_step': int(best_step.numpy()),
               })
 
             time_per_iter = stopwatch.elapsed()
