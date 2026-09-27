@@ -141,6 +141,8 @@ It starts from the original TCC batch size (2) and frame count (20), then tests
 short and long temporal context, sharper and softer alignment temperatures,
 and a fully frozen ResNet backbone. Each experiment changes one baseline
 setting and writes to isolated local and persistent directories.
+All sweep runs use seed 42 by default without forcing deterministic GPU
+operations. Override it with `TCC_EXPERIMENT_SEED`.
 
 ```bash
 # One-time GPU TensorFlow (if the venv has CPU-only TF)
@@ -163,6 +165,9 @@ bash tcc/scripts/run_forehand_experiments.sh
 # Or run a subset
 EXPERIMENTS="baseline context_short" \
   bash tcc/scripts/run_forehand_experiments.sh
+
+# Use another shared seed for the sweep
+TCC_EXPERIMENT_SEED=43 bash tcc/scripts/run_forehand_experiments.sh
 
 # Align two clips (GIF)
 bash tcc/scripts/align_two_clips.sh /path/to/a.mp4 /path/to/b.mp4

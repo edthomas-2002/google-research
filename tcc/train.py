@@ -46,6 +46,8 @@ flags.DEFINE_string(
 flags.DEFINE_string('wandb_entity', None, 'Optional W&B entity.')
 flags.DEFINE_string('wandb_project', None, 'Optional W&B project.')
 flags.DEFINE_string('wandb_run_name', 'tcc', 'Base name for the W&B run.')
+flags.DEFINE_integer(
+    'seed', None, 'Optional Python, NumPy, and TensorFlow random seed.')
 flags.DEFINE_boolean('defun', True, 'Defun functions in algo for faster '
                      'training.')
 flags.DEFINE_boolean('debug', False, 'Plots detailed summaries on Tensorboard.')
@@ -68,6 +70,10 @@ def train():
   logdir = CONFIG.LOGDIR
   setup_train_dir(logdir)
 
+  if FLAGS.seed is not None:
+    tf.keras.utils.set_random_seed(FLAGS.seed)
+    logging.info('Using random seed %d.', FLAGS.seed)
+
   wandb_run = None
   if FLAGS.wandb_project:
     import wandb  # pylint: disable=g-import-not-at-top
@@ -77,6 +83,7 @@ def train():
     wandb_config = to_dict(CONFIG)
     wandb_config['PERSISTENT_CHECKPOINT_DIR'] = (
         FLAGS.persistent_checkpoint_dir)
+    wandb_config['SEED'] = FLAGS.seed
     wandb_run = wandb.init(
         entity=FLAGS.wandb_entity,
         project=FLAGS.wandb_project,

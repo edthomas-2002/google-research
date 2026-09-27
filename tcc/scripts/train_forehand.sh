@@ -14,6 +14,7 @@ PERSISTENT_DIR="${TCC_PERSISTENT_DIR:-$OUTPUT_ROOT/logs/tennis_forehand_rear}"
 WANDB_ENTITY="${WANDB_ENTITY:-edthomas-2002-private}"
 WANDB_PROJECT="${WANDB_PROJECT:-tennis-forehand-tcc}"
 WANDB_RUN_NAME="${WANDB_RUN_NAME:-forehand-tcc}"
+TCC_SEED="${TCC_SEED:-}"
 CONFIG_SRC="${TCC_FOREHAND_CONFIG:-$ROOT/tcc/configs/tennis_forehand_rear.yml}"
 RESNET="/tmp/resnet50v2_weights_tf_dim_ordering_tf_kernels_notop.h5"
 TFRECORD_DIR="/tmp/tennis_forehand_rear_tfrecords"
@@ -53,6 +54,10 @@ echo "local checkpoints=$LOGDIR"
 echo "persistent last/best=$PERSISTENT_DIR"
 
 EXTRA_TRAIN_FLAGS="${EXTRA_TRAIN_FLAGS:-}"
+SEED_FLAG=()
+if [[ -n "$TCC_SEED" ]]; then
+  SEED_FLAG=("--seed=$TCC_SEED")
+fi
 python -m tcc.train \
   --alsologtostderr \
   --logdir="$LOGDIR" \
@@ -60,4 +65,5 @@ python -m tcc.train \
   --wandb_entity="$WANDB_ENTITY" \
   --wandb_project="$WANDB_PROJECT" \
   --wandb_run_name="$WANDB_RUN_NAME" \
+  "${SEED_FLAG[@]}" \
   $EXTRA_TRAIN_FLAGS

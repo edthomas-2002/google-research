@@ -14,6 +14,7 @@ EXPERIMENT_ROOT="${TCC_EXPERIMENT_ROOT:-/tmp/tcc_forehand_experiments}"
 OUTPUT_ROOT="${TCC_OUTPUT_ROOT:-/home/ec2-user/tennis/outputs}"
 PERSISTENT_ROOT="${TCC_EXPERIMENT_OUTPUT_ROOT:-$OUTPUT_ROOT/logs/tennis_forehand_rear_experiments}"
 EXPERIMENTS="${EXPERIMENTS:-baseline context_short context_long temperature_sharp temperature_soft backbone_frozen}"
+EXPERIMENT_SEED="${TCC_EXPERIMENT_SEED:-42}"
 
 mkdir -p "$EXPERIMENT_ROOT/configs" "$PERSISTENT_ROOT"
 
@@ -102,13 +103,14 @@ for experiment in $EXPERIMENTS; do
     "$batch_size" "$num_frames"
 
   echo
-  echo "=== $experiment: batch=$batch_size frames=$num_frames stride=$frame_stride temperature=$temperature train_base=$train_base max_iters=10000 ==="
+  echo "=== $experiment: batch=$batch_size frames=$num_frames stride=$frame_stride temperature=$temperature train_base=$train_base max_iters=10000 seed=$EXPERIMENT_SEED ==="
   if [[ "${TCC_EXPERIMENT_DRY_RUN:-0}" == "1" ]]; then
     continue
   fi
   TCC_FOREHAND_CONFIG="$config_path" \
   TCC_LOGDIR="$logdir" \
   TCC_PERSISTENT_DIR="$persistent_dir" \
+  TCC_SEED="$EXPERIMENT_SEED" \
   WANDB_RUN_NAME="forehand-tcc-$experiment" \
     bash tcc/scripts/train_forehand.sh
 done
