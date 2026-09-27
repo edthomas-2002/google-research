@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Train TCC on tennis_forehand_rear.
-# TFRecords, ImageNet weights, and normal training output: /tmp.
-# One last and one best checkpoint are mirrored to $TCC_OUTPUT_ROOT.
+# TFRecords, ImageNet weights, and TensorBoard logs: /tmp.
+# Checkpoints: last and best under $TCC_OUTPUT_ROOT (resume from last).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

@@ -125,11 +125,10 @@ finds it difficult to count.
 
 Unlabeled clips. Sync from S3, then use the stock TFRecord / train / embed / visualize tools.
 
-The original training checkpoints, videos, TFRecords, and ImageNet ResNet
-weights stay in `/tmp`. One last and one best-training-loss checkpoint are
-also saved under
-**`TCC_OUTPUT_ROOT/logs/tennis_forehand_rear/{last,best}`** (where
-`TCC_OUTPUT_ROOT` defaults to `/home/ec2-user/tennis/outputs`).
+TFRecords (training copy) and ImageNet ResNet weights stay in `/tmp`.
+Checkpoints are written only to
+**`TCC_OUTPUT_ROOT/logs/tennis_forehand_rear/{last,best}`**
+(resume from `last`; `TCC_OUTPUT_ROOT` defaults to `/home/ec2-user/tennis/outputs`).
 Training uses AdamW (`1e-4` learning rate and weight decay) and trains for
 150k iterations.
 W&B logs to `edthomas-2002-private/tennis-forehand-tcc`. Run names use

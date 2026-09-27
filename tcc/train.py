@@ -42,7 +42,7 @@ from tcc.utils import to_dict
 flags.DEFINE_string('logdir', '/tmp/alignment_logs', 'Path to logs.')
 flags.DEFINE_string(
     'persistent_checkpoint_dir', None,
-    'If set, also keep one last and one best checkpoint in this directory.')
+    'If set, write only last and best checkpoints here and resume from last.')
 flags.DEFINE_string('wandb_entity', None, 'Optional W&B entity.')
 flags.DEFINE_string('wandb_project', None, 'Optional W&B project.')
 flags.DEFINE_string('wandb_run_name', 'tcc', 'Base name for the W&B run.')
@@ -107,8 +107,7 @@ def train():
         float('inf'), trainable=False, dtype=tf.float32, name='best_loss')
     best_step = tf.Variable(
         -1, trainable=False, dtype=tf.int64, name='best_step')
-    ckpt_manager, _, checkpoint = restore_ckpt(
-        logdir=logdir,
+    ckpt_kwargs = dict(
         optimizer=optimizer,
         best_loss=best_loss,
         best_step=best_step,
@@ -116,7 +115,9 @@ def train():
 
     last_manager = None
     best_manager = None
+    ckpt_manager = None
     if FLAGS.persistent_checkpoint_dir:
+      checkpoint = tf.train.Checkpoint(**ckpt_kwargs)
       last_manager = tf.train.CheckpointManager(
           checkpoint,
           directory=os.path.join(FLAGS.persistent_checkpoint_dir, 'last'),
@@ -128,10 +129,12 @@ def train():
       persistent_checkpoint = (
           last_manager.latest_checkpoint or
           tf.train.latest_checkpoint(FLAGS.persistent_checkpoint_dir))
-      if not ckpt_manager.latest_checkpoint and persistent_checkpoint:
+      if persistent_checkpoint:
         checkpoint.restore(persistent_checkpoint)
-        logging.info('Restored persistent checkpoint: %s',
-                     persistent_checkpoint)
+        logging.info('Restored last checkpoint: %s', persistent_checkpoint)
+    else:
+      ckpt_manager, _, checkpoint = restore_ckpt(
+          logdir=logdir, **ckpt_kwargs)
 
     global_step_value = global_step.numpy()
 
@@ -180,14 +183,14 @@ def train():
             tf.summary.scalar('loss', loss, step=global_step)
             tf.summary.scalar('learning_rate', learning_rate, step=global_step)
 
-            # Use the original local checkpoint flow, then persist last/best.
             if global_step_value % CONFIG.CHECKPOINT.SAVE_INTERVAL == 0:
               loss_value = float(loss.numpy())
               updated_best = loss_value < float(best_loss.numpy())
               if updated_best:
                 best_loss.assign(loss_value)
                 best_step.assign(global_step_value)
-              ckpt_manager.save()
+              if ckpt_manager:
+                ckpt_manager.save()
               if last_manager:
                 last_manager.save(checkpoint_number=int(global_step.numpy()))
               if updated_best and best_manager:
@@ -228,7 +231,8 @@ def train():
       logging.info('Caught keyboard interrupt. Saving model before quitting.')
 
     finally:
-      ckpt_manager.save()
+      if ckpt_manager:
+        ckpt_manager.save()
       if last_manager:
         last_manager.save(checkpoint_number=int(global_step.numpy()))
       logging.info('Checkpoint saved at iter %d', global_step_value)
